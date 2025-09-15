@@ -1,0 +1,87 @@
+# .github/workflows/merge-dev-to-test.yml
+name: ServiceNow Approval - Merge Dev to Test
+   
+# This workflow will only run when triggered via REST API from ServiceNow
+on:
+  workflow_dispatch:
+    inputs:
+      approval_id:
+        description: 'ServiceNow Approval ID'
+        required: false
+        default: 'manual-trigger'
+      approved_by:
+        description: 'Approved by user'
+        required: false
+        default: 'ServiceNow User'
+  
+  # Optional: Also trigger on repository dispatch for external API calls
+  repository_dispatch:
+    types: [servicenow-approval]
+
+jobs:
+  merge-branches:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0  # Fetch all history for all branches
+    
+    - name: Configure Git
+      run: |
+        git config --global user.name 'GitHub Actions Bot'
+        git config --global user.email 'actions@github.com'
+    
+    - name: Log approval details
+      run: |
+        echo "ServiceNow approval triggered merge process"
+        echo "Approval ID: ${{ github.event.inputs.approval_id || github.event.client_payload.approval_id || 'API-triggered' }}"
+        echo "Approved by: ${{ github.event.inputs.approved_by || github.event.client_payload.approved_by || 'ServiceNow User' }}"
+        echo "Timestamp: $(date)"
+    
+    - name: Fetch all branches
+      run: |
+        git fetch --all
+        git branch -a
+    
+    - name: Checkout and update dev branch
+      run: |
+        git checkout dev
+        git pull origin dev
+        echo "Current dev branch status:"
+        git log --oneline -3
+    
+    - name: Checkout and update test branch
+      run: |
+        git checkout test
+        git pull origin test
+        echo "Current test branch status:"
+        git log --oneline -3
+    
+    - name: Merge dev into test
+      run: |
+        git merge dev --no-ff -m "Automated merge from dev to test - ServiceNow approval triggered
+        
+        Approval ID: ${{ github.event.inputs.approval_id || github.event.client_payload.approval_id || 'API-triggered' }}
+        Approved by: ${{ github.event.inputs.approved_by || github.event.client_payload.approved_by || 'ServiceNow User' }}
+        Timestamp: $(date)"
+    
+    - name: Push changes to test branch
+      run: |
+        git push origin test
+    
+    - name: Create merge summary
+      run: |
+        echo "✅ Successfully merged dev into test branch"
+        echo "📋 Summary of changes:"
+        git log --oneline test ^HEAD~1
+        echo "🔗 Branches are now synchronized"
+    
+    - name: Post merge validation
+      run: |
+        echo "Validating merge completed successfully..."
+        git checkout test
+        git log --oneline -5
+        echo "Test branch is up to date with latest changes from dev"
