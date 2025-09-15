@@ -1,0 +1,58 @@
+# azure-pipelines.yml
+   # Pipeline to merge dev branch to test branch upon ServiceNow approval
+   
+   trigger: none # This pipeline will only run when triggered by ServiceNow
+   
+   # Agent pool configuration
+   pool:
+     vmImage: 'ubuntu-latest'
+   
+   variables:
+     devBranch: 'dev'
+     testBranch: 'test'
+   
+   steps:
+   # Checkout the repository with credentials persisted for push operations
+   - checkout: self
+     persistCredentials: true
+     displayName: 'Checkout repository'
+   
+   # Configure git user for commits
+   - script: |
+       git config --global user.email "azure-pipeline@company.com"
+       git config --global user.name "Azure DevOps Pipeline"
+     displayName: 'Configure git user'
+   
+   # Fetch all branches
+   - script: |
+       git fetch origin
+     displayName: 'Fetch all branches'
+   
+   # Switch to dev branch and ensure it's up to date
+   - script: |
+       git checkout $(devBranch)
+       git pull origin $(devBranch)
+     displayName: 'Checkout and update dev branch'
+   
+   # Switch to test branch and ensure it's up to date
+   - script: |
+       git checkout $(testBranch)
+       git pull origin $(testBranch)
+     displayName: 'Checkout and update test branch'
+   
+   # Merge dev into test
+   - script: |
+       git merge $(devBranch) --no-ff -m "Automated merge from dev to test - ServiceNow approval triggered"
+     displayName: 'Merge dev branch into test branch'
+   
+   # Push changes to test branch
+   - script: |
+       git push origin $(testBranch)
+     displayName: 'Push merged changes to test branch'
+   
+   # Optional: Create a summary of changes
+   - script: |
+       echo "Successfully merged $(devBranch) into $(testBranch)"
+       echo "Merge triggered by ServiceNow approval workflow"
+       git log --oneline -5
+     displayName: 'Display merge summary'
